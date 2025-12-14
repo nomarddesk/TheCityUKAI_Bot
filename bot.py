@@ -1,9 +1,16 @@
 import os
 import logging
+import sys
 from typing import List, Optional
 from dataclasses import dataclass
-from enum import Enum
-from dotenv import load_dotenv
+
+# Try to import dotenv, but handle if it's not available
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    print("Warning: python-dotenv not installed. Using environment variables directly.")
+    # For Render, we'll use environment variables directly
 
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
@@ -15,21 +22,29 @@ from telegram.ext import (
     filters
 )
 
-# Load environment variables
-load_dotenv()
-
-# Configure logging
+# Configure logging for Render
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    level=logging.INFO
+    level=logging.INFO,
+    stream=sys.stdout  # Important for Render logs
 )
 logger = logging.getLogger(__name__)
 
 # Bot Configuration
 class BotConfig:
-    TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
-    ADMIN_IDS = [int(id.strip()) for id in os.getenv('ADMIN_IDS', '').split(',') if id.strip()]
-    MAX_MESSAGE_LENGTH = 4096  # Telegram's limit
+    # Get token from environment variable (Render sets this)
+    TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN')
+    
+    # For local development, you can use a fallback
+    if not TOKEN:
+        TOKEN = "YOUR_BOT_TOKEN_HERE"  # Fallback for local testing
+    
+    ADMIN_IDS = []
+    admin_ids_str = os.environ.get('ADMIN_IDS', '')
+    if admin_ids_str:
+        ADMIN_IDS = [int(id.strip()) for id in admin_ids_str.split(',') if id.strip()]
+    
+    MAX_MESSAGE_LENGTH = 4096
 
 # NCN Information
 @dataclass
@@ -105,8 +120,13 @@ class NCNBot:
         self.config = BotConfig()
         self.ncn = NCNComponent()
         
-        if not self.config.TOKEN:
-            raise ValueError("TELEGRAM_BOT_TOKEN not found in environment variables")
+        # Validate token
+        if not self.config.TOKEN or self.config.TOKEN == "YOUR_BOT_TOKEN_HERE":
+            logger.error("TELEGRAM_BOT_TOKEN is not set!")
+            print("ERROR: Please set TELEGRAM_BOT_TOKEN environment variable")
+            print("On Render, go to Dashboard > Your Service > Environment")
+            print("Add TELEGRAM_BOT_TOKEN with your bot token")
+            sys.exit(1)
     
     async def start(self, update: Update, context: CallbackContext) -> None:
         """Handle /start command with NCN introduction."""
@@ -287,7 +307,6 @@ Please contact the NCN team for access credentials.
     
     async def network_status(self, update: Update, context: CallbackContext) -> None:
         """Display current network status."""
-        # Simulated network status (in production, fetch from API)
         message = """
 📊 **NCN Network Status** - Live Dashboard
 
@@ -431,6 +450,27 @@ https://calendly.com/ncn-team
             "Sorry, I didn't understand that command. Try /help to see available commands."
         )
     
+    async def stats(self, update: Update, context: CallbackContext) -> None:
+        """Show bot statistics (admin only)."""
+        user_id = update.effective_user.id
+        
+        if user_id not in self.config.ADMIN_IDS:
+            await update.message.reply_text("❌ This command is for administrators only.")
+            return
+        
+        stats_message = """
+📊 **Bot Statistics**
+        
+• Uptime: Since deployment
+• Total Users: Collecting data...
+• Active Today: Monitoring...
+• Commands Processed: Counting...
+
+*More stats coming soon!*
+        """
+        
+        await update.message.reply_markdown(stats_message)
+    
     def setup_handlers(self, application: Application):
         """Setup all command handlers."""
         # Command handlers
@@ -442,6 +482,7 @@ https://calendly.com/ncn-team
         application.add_handler(CommandHandler("network", self.network_status))
         application.add_handler(CommandHandler("contact", self.contact))
         application.add_handler(CommandHandler("help", self.help_command))
+        application.add_handler(CommandHandler("stats", self.stats))
         
         # Button callback handler
         application.add_handler(CallbackQueryHandler(self.button_handler))
@@ -451,11 +492,14 @@ https://calendly.com/ncn-team
     
     def run(self):
         """Run the bot."""
+        # Create application
         application = Application.builder().token(self.config.TOKEN).build()
         
+        # Setup handlers
         self.setup_handlers(application)
         
-        logger.info("NCN Bot is starting...")
+        # Log startup message
+        logger.info("🚀 NCN Bot is starting...")
         print("""
 ╔══════════════════════════════════════════╗
 ║      NCN Bot Initialization Complete     ║
@@ -463,24 +507,32 @@ https://calendly.com/ncn-team
 ║ Bot: NCN Information Portal              ║
 ║ Status: ✅ Running                       ║
 ║ Version: 2.0.0                           ║
+║ Platform: Render                         ║
 ║ Network: NVAI Computing Network          ║
 ╚══════════════════════════════════════════╝
         """)
         
-        application.run_polling(allowed_updates=Update.ALL_TYPES)
+        # Start polling
+        application.run_polling(
+            allowed_updates=Update.ALL_TYPES,
+            drop_pending_updates=True  # Important for Render to avoid old updates
+        )
 
 def main():
     """Main entry point."""
     try:
+        # Initialize and run bot
         bot = NCNBot()
         bot.run()
     except Exception as e:
         logger.error(f"Failed to start bot: {e}")
-        print(f"Error: {e}")
-        print("\nPlease ensure:")
-        print("1. TELEGRAM_BOT_TOKEN is set in .env file")
-        print("2. All dependencies are installed")
-        print("3. You have a stable internet connection")
+        print(f"❌ Error: {e}")
+        print("\n🔧 Troubleshooting steps:")
+        print("1. Check if TELEGRAM_BOT_TOKEN is set in Render Environment Variables")
+        print("2. Verify your bot token is correct")
+        print("3. Check Render logs for more details")
+        print("4. Make sure requirements.txt is up to date")
+        sys.exit(1)
 
 if __name__ == '__main__':
     main()
