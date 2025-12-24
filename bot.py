@@ -35,55 +35,72 @@ class BotConfig:
         logger.error("TELEGRAM_BOT_TOKEN not set!")
         sys.exit(1)
 
-# NCN Information
+# Crypto Education Content
 @dataclass
-class NCNFeature:
+class CryptoTopic:
     title: str
     description: str
     icon: str
 
-class NCNComponent:
+class CryptoEducation:
     def __init__(self):
         self.description = """
-🚀 **NCN (NVAI Computing Network)**
-*Secure, Independent Computing Network Powered by NVAI Technology*
+📚 **Crypto Education Bot**
+*Your guide to understanding cryptocurrency and blockchain technology*
 
-NCN represents a revolutionary leap in decentralized computing infrastructure.
+Welcome to a safe, educational space to learn about cryptocurrency fundamentals.
 """
         
-        self.key_features = [
-            NCNFeature("🔒 Quantum-Secure Architecture", "Military-grade encryption", "🛡️"),
-            NCNFeature("🧠 NVAI Neural Processing", "Distributed neural network processing", "⚡"),
-            NCNFeature("🌐 Autonomous Operation", "Self-healing network", "🤖"),
-            NCNFeature("⚡ Edge Computing First", "Ultra-low latency processing", "💨"),
-            NCNFeature("📊 Data Sovereignty", "Complete user control over data", "🔐"),
-            NCNFeature("♻️ Energy Efficient", "Green computing optimized", "🌿")
+        self.topics = [
+            CryptoTopic("🔗 What is Blockchain?", 
+                       "Blockchain is a decentralized, distributed ledger technology that records transactions across many computers. It ensures security, transparency, and immutability of data without central authority.", 
+                       "🔗"),
+            
+            CryptoTopic("💰 What is Cryptocurrency?", 
+                       "Cryptocurrency is digital money that uses cryptography for security. It operates independently of central banks and enables peer-to-peer transactions through blockchain technology.", 
+                       "💰"),
+            
+            CryptoTopic("🔒 Crypto Security Basics", 
+                       "Learn essential security practices: Use hardware wallets, enable 2FA, never share private keys, verify addresses, and beware of phishing scams. Your keys, your crypto!", 
+                       "🔒"),
+            
+            CryptoTopic("🌱 Getting Started Safely", 
+                       "Start with research, understand risks, begin with small amounts, use reputable exchanges, and never invest more than you can afford to lose. Education first!", 
+                       "🌱")
         ]
 
-class NCNBot:
+class CryptoEduBot:
     def __init__(self):
         self.config = BotConfig()
-        self.ncn = NCNComponent()
-        logger.info("NCN Bot initialized")
+        self.education = CryptoEducation()
+        logger.info("Crypto Education Bot initialized")
     
     async def start(self, update: Update, context: CallbackContext) -> None:
         """Handle /start command."""
         user = update.effective_user
         
         welcome_message = f"""
-🌟 Welcome {user.first_name} to the NCN Information Portal! 🌟
+🎓 Welcome {user.first_name} to Crypto Education Bot! 🎓
 
-{self.ncn.description}
+{self.education.description}
+
+📖 *Choose a topic to learn:*
+1. What is Blockchain?
+2. What is Cryptocurrency?
+3. Crypto Security Basics
+4. Getting Started Safely
 
 📋 *Available Commands:*
 /start - Welcome message
-/features - Key features
+/topics - List all topics
 /help - Show all commands
         """
         
         keyboard = [
-            [InlineKeyboardButton("🚀 Features", callback_data="features")],
-            [InlineKeyboardButton("📞 Contact", callback_data="contact")]
+            [InlineKeyboardButton("🔗 Blockchain", callback_data="blockchain"),
+             InlineKeyboardButton("💰 Cryptocurrency", callback_data="crypto")],
+            [InlineKeyboardButton("🔒 Security", callback_data="security"),
+             InlineKeyboardButton("🌱 Getting Started", callback_data="started")]
         ]
         
         reply_markup = InlineKeyboardMarkup(keyboard)
@@ -94,39 +111,26 @@ class NCNBot:
             parse_mode='Markdown'
         )
     
-    async def features(self, update: Update, context: CallbackContext) -> None:
-        """Display NCN features."""
-        message = "🚀 **NCN Key Features**\n\n"
+    async def topics(self, update: Update, context: CallbackContext) -> None:
+        """Display all crypto topics."""
+        message = "📚 **Available Crypto Education Topics**\n\n"
         
-        for feature in self.ncn.key_features:
-            message += f"{feature.icon} **{feature.title}**\n"
-            message += f"   {feature.description}\n\n"
+        for i, topic in enumerate(self.education.topics, 1):
+            message += f"{topic.icon} **{i}. {topic.title}**\n"
+            message += f"   {topic.description[:100]}...\n\n"
         
         await update.message.reply_markdown(message)
     
     async def help_command(self, update: Update, context: CallbackContext) -> None:
         """Show help message."""
         message = """
-🤖 **NCN Bot Commands**
+🤖 **Crypto Education Bot Commands**
 
-/start - Welcome message
-/features - Key features of NCN
+/start - Welcome message with topic buttons
+/topics - List all educational topics
 /help - This help message
 
-💡 Use the interactive buttons for quick navigation!
-        """
-        
-        await update.message.reply_markdown(message)
-    
-    async def contact(self, update: Update, context: CallbackContext) -> None:
-        """Display contact information."""
-        message = """
-📞 **Contact NCN Team**
-
-🌐 **Website:** https://ncn-network.io
-📧 **Email:** contact@ncn-network.io
-
-📍 **HQ:** Zurich, Switzerland
+💡 Use the interactive buttons below to explore different crypto topics!
         """
         
         await update.message.reply_markdown(message)
@@ -136,35 +140,80 @@ class NCNBot:
         query = update.callback_query
         await query.answer()
         
-        if query.data == "features":
-            message = "🚀 **NCN Key Features**\n\n"
-            for feature in self.ncn.key_features:
-                message += f"{feature.icon} **{feature.title}**\n"
-                message += f"   {feature.description}\n\n"
+        if query.data == "blockchain":
+            topic = self.education.topics[0]
+            message = f"**{topic.icon} {topic.title}**\n\n{topic.description}\n\n💡 *Key Takeaways:*\n• Decentralized ledger\n• Immutable records\n• No central authority\n• Transparent transactions"
             
-            await query.edit_message_text(
-                message,
-                parse_mode='Markdown'
-            )
-        elif query.data == "contact":
-            await query.edit_message_text(
-                "📞 **Contact NCN Team**\n\n🌐 Website: https://ncn-network.io\n📧 Email: contact@ncn-network.io",
-                parse_mode='Markdown'
-            )
+        elif query.data == "crypto":
+            topic = self.education.topics[1]
+            message = f"**{topic.icon} {topic.title}**\n\n{topic.description}\n\n💡 *Key Takeaways:*\n• Digital currency\n• Peer-to-peer transactions\n• Cryptography for security\n• Limited supply"
+            
+        elif query.data == "security":
+            topic = self.education.topics[2]
+            message = f"**{topic.icon} {topic.title}**\n\n{topic.description}\n\n💡 *Key Takeaways:*\n• Hardware wallets recommended\n• Never share private keys\n• Enable 2FA\n• Verify all transactions"
+            
+        elif query.data == "started":
+            topic = self.education.topics[3]
+            message = f"**{topic.icon} {topic.title}**\n\n{topic.description}\n\n💡 *Key Takeaways:*\n• Research before investing\n• Start small\n• Use reputable platforms\n• Understand the risks"
+        
+        keyboard = [
+            [InlineKeyboardButton("🔗 Blockchain", callback_data="blockchain"),
+             InlineKeyboardButton("💰 Cryptocurrency", callback_data="crypto")],
+            [InlineKeyboardButton("🔒 Security", callback_data="security"),
+             InlineKeyboardButton("🌱 Getting Started", callback_data="started")],
+            [InlineKeyboardButton("📚 All Topics", callback_data="all_topics")]
+        ]
+        
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        await query.edit_message_text(
+            message,
+            reply_markup=reply_markup,
+            parse_mode='Markdown'
+        )
+    
+    async def all_topics_handler(self, update: Update, context: CallbackContext) -> None:
+        """Handle 'All Topics' button."""
+        query = update.callback_query
+        await query.answer()
+        
+        message = "📚 **Complete Crypto Education Topics**\n\n"
+        
+        for topic in self.education.topics:
+            message += f"{topic.icon} **{topic.title}**\n"
+            message += f"{topic.description}\n\n"
+        
+        keyboard = [
+            [InlineKeyboardButton("🔗 Blockchain", callback_data="blockchain"),
+             InlineKeyboardButton("💰 Cryptocurrency", callback_data="crypto")],
+            [InlineKeyboardButton("🔒 Security", callback_data="security"),
+             InlineKeyboardButton("🌱 Getting Started", callback_data="started")]
+        ]
+        
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        await query.edit_message_text(
+            message,
+            reply_markup=reply_markup,
+            parse_mode='Markdown'
+        )
     
     def setup_handlers(self, application: Application):
         """Setup all command handlers."""
         application.add_handler(CommandHandler("start", self.start))
-        application.add_handler(CommandHandler("features", self.features))
+        application.add_handler(CommandHandler("topics", self.topics))
         application.add_handler(CommandHandler("help", self.help_command))
-        application.add_handler(CallbackQueryHandler(self.button_handler))
+        
+        # Button handlers
+        application.add_handler(CallbackQueryHandler(self.button_handler, pattern="^(blockchain|crypto|security|started)$"))
+        application.add_handler(CallbackQueryHandler(self.all_topics_handler, pattern="^all_topics$"))
         
         # Unknown command handler
         application.add_handler(MessageHandler(filters.COMMAND, self.unknown))
     
     async def unknown(self, update: Update, context: CallbackContext) -> None:
         """Handle unknown commands."""
-        await update.message.reply_text("Sorry, I didn't understand that command. Try /help")
+        await update.message.reply_text("Sorry, I didn't understand that command. Try /help to see available commands.")
     
     async def set_webhook(self, application: Application):
         """Set webhook if WEBHOOK_URL is available."""
@@ -196,13 +245,13 @@ class NCNBot:
         logger.info("Starting bot in polling mode...")
         application.run_polling(
             allowed_updates=Update.ALL_TYPES,
-            drop_pending_updates=True  # IMPORTANT: Drops old updates to avoid conflicts
+            drop_pending_updates=True
         )
 
 def main():
     """Main entry point."""
     try:
-        bot = NCNBot()
+        bot = CryptoEduBot()
         
         # Check if we're on Render (has WEBHOOK_URL)
         config = BotConfig()
